@@ -420,6 +420,11 @@ func (am *alertmanager) PutAlerts(_ context.Context, postableAlerts apimodels.Po
 // CleanUp no-ops as no files are stored on disk.
 func (am *alertmanager) CleanUp() {}
 
+// SilenceState returns the current internal state of silences.
+func (am *alertmanager) SilenceState(_ context.Context) (alertingNotify.SilenceState, error) {
+	return am.Base.SilenceState()
+}
+
 // AlertValidationError is the error capturing the validation errors
 // faced on the alerts.
 type AlertValidationError struct {
