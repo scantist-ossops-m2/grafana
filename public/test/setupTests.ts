@@ -1,12 +1,16 @@
 import '@testing-library/jest-dom';
 import { configure } from '@testing-library/react';
+import dotenv from 'dotenv';
 import i18next from 'i18next';
 import failOnConsole from 'jest-fail-on-console';
 import { initReactI18next } from 'react-i18next';
 
+dotenv.config();
+dotenv.config({ path: `.env.local`, override: true });
+
 import { matchers } from './matchers';
 
-if (process.env.CI) {
+if (process.env.GRAFANA_TESTS_FAIL_ON_CONSOLE || process.env.CI) {
   failOnConsole({
     shouldFailOnLog: true,
     shouldFailOnDebug: true,
