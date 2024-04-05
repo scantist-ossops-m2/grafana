@@ -1,13 +1,11 @@
 import 'whatwg-fetch';
-import { render, waitFor, waitForElementToBeRemoved, within } from '@testing-library/react';
 import { setupServer } from 'msw/node';
 import React from 'react';
-import { FormProvider, useForm } from 'react-hook-form';
-import { TestProvider } from 'test/helpers/TestProvider';
 import { byRole, byTestId, byText } from 'testing-library-selector';
 
 import { selectors } from '@grafana/e2e-selectors/src';
 import { config, setBackendSrv, setDataSourceSrv } from '@grafana/runtime';
+import { render, waitFor, waitForElementToBeRemoved, within } from '@grafana/test-utils';
 import { backendSrv } from 'app/core/services/backend_srv';
 import { DashboardSearchItem, DashboardSearchItemType } from 'app/features/search/types';
 import { AlertManagerCortexConfig } from 'app/plugins/datasource/alertmanager/types';
@@ -29,15 +27,12 @@ import {
   mockRulerAlertingRule,
   mockRulerGrafanaRule,
   mockRulerRuleGroup,
-  mockStore,
 } from './mocks';
 import { mockAlertmanagerConfigResponse } from './mocks/alertmanagerApi';
 import { mockRulerRulesApiResponse, mockRulerRulesGroupApiResponse } from './mocks/rulerApi';
 import { AlertingQueryRunner } from './state/AlertingQueryRunner';
-import { RuleFormValues } from './types/rule-form';
 import { Annotation } from './utils/constants';
 import { GRAFANA_RULES_SOURCE_NAME } from './utils/datasource';
-import { getDefaultFormValues } from './utils/rule-form';
 import { hashRulerRule } from './utils/rule-id';
 
 jest.mock('./components/rule-editor/ExpressionEditor', () => ({
@@ -83,10 +78,10 @@ const ui = {
   loadingIndicator: byText('Loading the rule'),
 };
 
-function getProvidersWrapper() {
-  return function Wrapper({ children }: React.PropsWithChildren<{}>) {
-    const store = mockStore((store) => {
-      store.unifiedAlerting.dataSources['grafana'] = {
+const preloadedState = {
+  unifiedAlerting: {
+    dataSources: {
+      grafana: {
         loading: false,
         dispatched: true,
         result: {
@@ -94,11 +89,11 @@ function getProvidersWrapper() {
           name: 'grafana',
           rulerConfig: {
             dataSourceName: 'grafana',
-            apiVersion: 'legacy',
+            apiVersion: 'legacy' as const,
           },
         },
-      };
-      store.unifiedAlerting.dataSources['my-prom-ds'] = {
+      },
+      'my-prom-ds': {
         loading: false,
         dispatched: true,
         result: {
@@ -106,21 +101,13 @@ function getProvidersWrapper() {
           name: 'my-prom-ds',
           rulerConfig: {
             dataSourceName: 'my-prom-ds',
-            apiVersion: 'config',
+            apiVersion: 'config' as const,
           },
         },
-      };
-    });
-
-    const formApi = useForm<RuleFormValues>({ defaultValues: getDefaultFormValues() });
-
-    return (
-      <TestProvider store={store}>
-        <FormProvider {...formApi}>{children}</FormProvider>
-      </TestProvider>
-    );
-  };
-}
+      },
+    },
+  },
+};
 
 const amConfig: AlertManagerCortexConfig = {
   alertmanager_config: {
@@ -163,7 +150,7 @@ describe('CloneRuleEditor', function () {
       mockAlertmanagerConfigResponse(server, GRAFANA_RULES_SOURCE_NAME, amConfig);
 
       render(<CloneRuleEditor sourceRuleId={{ uid: 'grafana-rule-1', ruleSourceName: 'grafana' }} />, {
-        wrapper: getProvidersWrapper(),
+        preloadedState,
       });
 
       await waitForElementToBeRemoved(ui.loadingIndicator.query());
@@ -234,7 +221,7 @@ describe('CloneRuleEditor', function () {
           }}
         />,
         {
-          wrapper: getProvidersWrapper(),
+          preloadedState,
         }
       );
 
