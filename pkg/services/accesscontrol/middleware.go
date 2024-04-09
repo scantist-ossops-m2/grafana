@@ -14,6 +14,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/grafana/grafana/pkg/infra/tracing"
 	"github.com/grafana/grafana/pkg/middleware/cookies"
 	"github.com/grafana/grafana/pkg/models/usertoken"
 	"github.com/grafana/grafana/pkg/services/auth/identity"
@@ -190,6 +191,13 @@ func AuthorizeInOrgMiddleware(ac AccessControl, service Service, userService use
 		return func(c *contextmodel.ReqContext) {
 			targetOrgID, err := getTargetOrg(c)
 			if err != nil {
+				if errors.Is(err, ErrInvalidRequestBody) {
+					c.JSON(http.StatusBadRequest, map[string]string{
+						"message": err.Error(),
+						"traceID": tracing.TraceIDFromContext(c.Req.Context(), false),
+					})
+					return
+				}
 				deny(c, nil, fmt.Errorf("failed to get target org: %w", err))
 				return
 			}
@@ -343,6 +351,9 @@ func UseGlobalOrgFromRequestData(cfg *setting.Cfg) func(*contextmodel.ReqContext
 	return func(c *contextmodel.ReqContext) (int64, error) {
 		query, err := getOrgQueryFromRequest(c)
 		if err != nil {
+			if errors.Is(err, ErrInvalidRequestBody) {
+				return NoOrgID, err
+			}
 			// Special case of macaron handling invalid params
 			return NoOrgID, org.ErrOrgNotFound.Errorf("failed to get organization from context: %w", err)
 		}
@@ -375,7 +386,9 @@ func getOrgQueryFromRequest(c *contextmodel.ReqContext) (*QueryWithOrg, error) {
 	}
 
 	if err := web.Bind(req, query); err != nil {
-		// Special case of macaron handling invalid params
+		if err.Error() == "unexpected EOF" {
+			return nil, fmt.Errorf("%w: unexpected end of JSON input", ErrInvalidRequestBody)
+		}
 		return nil, err
 	}
 
